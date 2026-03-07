@@ -16,7 +16,7 @@
 
 
 ## Statistical analyses
-> The statistical analysis script, used to conduct statistcal measures on accuracies and reaction times vi alinear mixed effects mdels.
+> The statistical analysis script, used to conduct statistcal measures on accuracies and reaction times via alinear mixed effects mdels.
 * **name:** explanation
 
 
