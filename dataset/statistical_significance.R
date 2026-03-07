@@ -1,6 +1,7 @@
 # Load packages
 library(dplyr)
 library(car)
+library(ggplot2)
 
 # Read dataset
 data <- read.csv("experiment_stimuli_dataframe (final).csv")
@@ -16,7 +17,7 @@ words$Emotional_valence_cat <- factor(words$Emotional_valence_cat, levels = c("p
 # List of numeric columns to clean
 numeric_cols <- c("Length", "Lg10SUBTLEX_US", "Emotional_valence_cont")
 
-# Convert columns to numeric, coercing "None" to NA
+# Convert columns to numeric, change "None" to NA
 words <- words %>%
   mutate(across(all_of(numeric_cols), ~ as.numeric(as.character(.))))
 
@@ -26,69 +27,61 @@ words_freq   <- words %>% filter(!is.na(Lg10SUBTLEX_US))
 words_val    <- words %>% filter(!is.na(Emotional_valence_cont))
 
 
+
+
 ### tests
 
-# 1. Length
-length_aov <- aov(Length ~ Emotional_valence_cat, data = words_length)
-summary(length_aov)
-leveneTest(Length ~ Emotional_valence_cat, data = words_length)
-TukeyHSD(length_aov)
 
-# 2. Frequency
+
+# Frequency
 freq_aov <- aov(Lg10SUBTLEX_US ~ Emotional_valence_cat, data = words_freq)
 summary(freq_aov)
-leveneTest(Lg10SUBTLEX_US ~ Emotional_valence_cat, data = words_freq)
-TukeyHSD(freq_aov)
-
-# 3. Continuous emotional valence
-valence_aov <- aov(Emotional_valence_cont ~ Emotional_valence_cat, data = words_val)
-summary(valence_aov)
-leveneTest(Emotional_valence_cont ~ Emotional_valence_cat, data = words_val)
-TukeyHSD(valence_aov)
+# leveneTest(Lg10SUBTLEX_US ~ Emotional_valence_cat, data = words_freq)
+# TukeyHSD(freq_aov)
 
 
-# anonva tests
-oneway.test(Lg10SUBTLEX_US ~ Emotional_valence_cat, data = words_freq, var.equal = FALSE)
-oneway.test(Length ~ Emotional_valence_cat, data = words_freq, var.equal = FALSE)
-oneway.test(Emotional_valence_cont ~ Emotional_valence_cat, data = words_freq, var.equal = FALSE)
-
-
-# takeaway:
-# no issues with frequency
-# no issues with continual valence (to be expected, but still good to check)
-# small issue with word length: negative vs neutral: p = 0.049 -> significant difference: negative words are slightly longer than neutral words, no other contrasts are significant
-
-# additionally:
-# Pairwise t-tests for Length
-pairwise.t.test(words_length$Length, 
-                words_length$Emotional_valence_cat, 
-                p.adjust.method = "holm",   # controls for multiple comparisons
-                pool.sd = TRUE)             # use pooled SD (standard t-test)
+# Length
+length_aov <- aov(Length ~ Emotional_valence_cat, data = words_length)
+summary(length_aov) # this is the right one -> look at Pr
+leveneTest(Length ~ Emotional_valence_cat, data = words_length)  # use to find out which is longer
+TukeyHSD(length_aov)
 
 
 
 
-
-
-# both words and nonwords:
-
-
-# Convert Condition to factor
-length_data$Condition <- factor(length_data$Condition, levels = c("word", "nonword"))
+# Plot
 
 
 
-# standard t-test length of words vs nonwords
-t_test_length_equal <- t.test(Length ~ Condition, data = length_data, var.equal = TRUE)
-t_test_length_equal
+# calculate mean, SDs
+length_summary <- words_length %>%
+  group_by(Emotional_valence_cat) %>%
+  summarise(
+    mean_length = mean(Length),
+    se_length   = sd(Length)/sqrt(n())
+  )
 
-# statistically signifcant difference in length between words and nonwords: nonwords tend to be slightly longer than words
+# Plot
+ggplot(length_summary, aes(x = Emotional_valence_cat, y = mean_length, fill = Emotional_valence_cat)) +
+  geom_col(width = 0.6, color = "black") +           # means
+  geom_errorbar(aes(ymin = mean_length - se_length, ymax = mean_length + se_length),
+                width = 0.2) +                       # error bars
+  labs(x = "Emotional Valence", y = "Mean Word Length") +
+  theme_minimal(base_size = 14) +
+  scale_fill_manual(values = c("negative" = "#E41A1C",
+                               "neutral"  = "#377EB8",
+                               "positive" = "#4DAF4A")) +
+  theme(legend.position = "none")
+
+ggsave(
+  "word_length.png",
+  plot = last_plot(),
+  width = 7,
+  height = 5
+)
 
 
-# todo: standard t test for frequency (only did anova test, but that was fine so we can assume ttest will be fine as well) - just for analytical symmetry
 
-
-
-
-
+getwd()
+setwd("C:/Users/jasmi/OneDrive/Dokumente/Uni/Master/1 WS25_26/Sprachverarbeitung im Kontext individueller Unterschiede")
 
