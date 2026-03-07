@@ -80,8 +80,3 @@ ggsave(
   height = 5
 )
 
-
-
-getwd()
-setwd("C:/Users/jasmi/OneDrive/Dokumente/Uni/Master/1 WS25_26/Sprachverarbeitung im Kontext individueller Unterschiede")
-
