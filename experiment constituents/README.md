@@ -17,10 +17,10 @@ Zur Erinnerung hier noch einmal unser festgelegter Versuchsablauf. Ihr findet hi
 
 | Wer? | Wie viele? | Probandennummern |
 ---|---|---|
-| Jasmin | min. 10 Personen | 1000 - 1999 |
-| Feven | min. 10 Personen | 2000 - 2999 |
-| Han Wen | min. 10 Personen | 3000 - 3999 |
-| Yueming | min. 10 Personen | 4000 - 4999 |
+| P1 | min. 10 Personen | 1000 - 1999 |
+| P2 | min. 10 Personen | 2000 - 2999 |
+| P3 | min. 10 Personen | 3000 - 3999 |
+| P4 | min. 10 Personen | 4000 - 4999 |
 
 
 ## OpenSesame-Experiment (Lexical Decision Task)
