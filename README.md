@@ -9,13 +9,13 @@
 * **statistical_significance.R**: code used for statistical testing of stimuli
 
 
-Experiment constituents
+## Experiment constituents
 > The questionaire that was used to acquire particpant data and the OpenSesame experiment used to measure accuracy and reaction times.
 * **LDT_Gruppe1_final.osexp**: OpenSesame experiment
 * **questionaire (valence_l1_english).pdf**: pdf version of subject questionaire
 
 
-Statistical something
+## Statistical something
 
 
 
