@@ -48,7 +48,7 @@ Jasmin used the ARC nonword database from [Macquarie University (Sydney-Australi
 Both were combined and the resulting nonwords were then also manually checked to ensure that all aforementioned conditions were met.
 
 # Statistical Testing of the Dataset
-todo: ask which method is correct, add results and documentation
+ANOVA tests indicated that word frequency did not differ significantly across emotional valence categories, $F(2, 93) = 0.55, p = .579$. In contrast, word did show a significant effect of emotional valence, $F(2, 93) = 3.36, p = .039$. Post-hoc comparisons using Tukey's HSD revealed that negative words were slightly longer than neutral words ($p = .049$), while differences between positive and the other categories were not significant. Levene's test confirmed homogeneity of variances for word length ($F(2, 93) = 2.29, p = .107$), indicating that the variability in word length is similar across the valence groups; therefore, the ANOVA result is reliable and not biased by unequal spread. Accordingly, word length will be incorporated as a covariate in subsequent analyses.
 
 
 
