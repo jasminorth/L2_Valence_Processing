@@ -17,7 +17,7 @@
 
 ## Statistical analyses
 > The statistical analysis script, used to conduct statistcal measures on accuracies and reaction times via alinear mixed effects mdels.
-* **name:** explanation
+* **IndiDiff_stats.Rmd**: analyses using linear mixed effects models, as well as additional post-hoc analyses such as correlation measures. Also, plotting.
 
 
 
