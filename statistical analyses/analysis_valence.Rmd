@@ -1,1 +1,610 @@
+---
+title: "Statistical Analysis: Valence Processing"
+output: html_document
+date: "2026-01-13"
+---
 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  warning = FALSE,
+  message = FALSE
+)
+```
+
+
+# Preparation
+In this section, we load the packages required for the subsequent analyses.
+
+```{r}
+# Data manipulation
+library(tidyverse)
+library(tidyr)
+library(dplyr)
+
+# Descriptive statistics
+library(psych)
+
+# Visualization
+library(ggplot2)
+library(corrplot)
+
+# MIxed models
+library(lme4)
+library(lmerTest)
+
+# Estimated marginal means
+library (emmeans)
+```
+
+
+# Participant Information
+Before analysing the experimental data, we examine whether participants' self-assessed English proficiency correlates with their LexTALE scores.
+LexTALE is used as an objective measure of English vocabulary knowledge, while the self-assessment scores reflect participants’ perceived language abilities in four domains:
+
+- speaking
+- listening
+- reading
+- writing
+
+## Correlation between LexTALE and Self-Assessment
+
+The following data frame contains the LexTALE results and the self-assessment scores for each participant.
+
+```{r}
+# Dataframe of all self-assessment scores for each participant
+participant_df <- data.frame(
+  lex_tale_result = c(65,67.5,65,81.25,87.5,55,72.5,92.5,67.5,82.5,95,56.25,76.25,78.75,57.5,91.25),
+  Speaking  = c(4,7,5,6,5,5,6,7,4,6,8,4,6,5,5,5),
+  Listening = c(7,7,6,7,8,7,6,6,4,6,8,3,6,6,5,6),
+  Reading   = c(5,7,7,6,8,6,6,5,5,7,8,3,6,7,5,7),
+  Writing  = c(4,5,3,7,6,4,6,5,4,6,7,3,6,5,5,6)
+)
+
+# Correlations of each domain with LexTALE
+cor(participant_df$lex_tale_result, participant_df$Speaking)
+cor(participant_df$lex_tale_result, participant_df$Listening)
+cor(participant_df$lex_tale_result, participant_df$Reading)
+cor(participant_df$lex_tale_result, participant_df$Writing)
+
+# Significance tests of the correlations
+cor.test(participant_df$lex_tale_result, participant_df$Speaking)
+cor.test(participant_df$lex_tale_result, participant_df$Listening)
+cor.test(participant_df$lex_tale_result, participant_df$Reading)
+cor.test(participant_df$lex_tale_result, participant_df$Writing)
+
+# Matrix for nicer viewing
+cor_matrix <- cor(participant_df)
+cor_matrix
+```
+
+
+## Visualization of the Correlations
+To visualise the relationship between LexTALE scores and self-assessed language skills, the data are transformed into long format and plotted separately for each skill.
+
+```{r proficiency_correlation, cache=TRUE}
+# Transform dataframe to long format
+corr_df <- participant_df %>%
+  pivot_longer(
+    cols = Speaking:Writing,
+    names_to = "skill",
+    values_to = "score"
+  )
+
+# Plot
+p <- ggplot(corr_df,
+       aes(x = lex_tale_result, y = score)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = TRUE, color = "mediumpurple1", fill = "mediumpurple1") +
+  facet_wrap(~skill) +
+  theme_minimal() +
+  labs(x = "LexTALE (%)", y = "Self-Assessment")
+
+p
+
+
+# Save
+ggsave(
+  "lextale_correlations.png",
+  plot = p,
+  width = 8,
+  height = 6
+)
+```
+
+
+# Experimental Data
+
+## Loading the Dataset
+The experimental dataset containing reaction times and accuracy values is loaded from a CSV file.
+
+```{r}
+descr_df <- read_csv("LDT_longlist_2026_01_09.csv", show_col_types = FALSE)
+```
+
+
+## Descriptive Statistics
+
+Two main measures are analysed:
+
+- **Accuracy** (whether the response was correct)
+- **Reaction time (RT)** in milliseconds
+
+
+### Initial Inspection of the Data
+Before conducting statistical analyses, the dataset is filtered to include only experimental trials containing real words. This removes practice items and nonword trials.
+
+```{r}
+# Remove all practice items, remove all nonword trials
+pre_filtered_df <- subset(descr_df, Item_type == "exp" & Condition == "word")
+pre_filtered_df
+```
+
+### Participant-Level Summary Statistics
+
+To identify potential outliers or problematic participants, we compute the mean accuracy and mean reaction time for each participant.
+
+This allows us to detect:
+
+- participants with extremely low accuracy (indicating misunderstanding of the task)
+- participants with unusually slow responses
+
+A preliminary plot is used to visualize potential outliers.
+
+```{r participant_outliers, cache=TRUE}
+# Overall overview by participant
+describeBy(pre_filtered_df, group = pre_filtered_df$Participant)
+
+# Summary: mean accuracy and RT by participant
+means_by_participant <- pre_filtered_df %>%
+  group_by(Participant) %>%
+  summarise(
+    mean_RT = mean(RT, na.rm = TRUE),
+    mean_acc = mean(Accuracy, na.rm = TRUE)
+  )
+means_by_participant
+
+# Plot (RT orange; accuracy green)
+plot_outliers <- function(y_axis, filename, colour){
+  p <- ggplot(data = means_by_participant, aes(x = "", y = {{ y_axis }})) +
+  geom_boxplot(fill = colour, color = "black", alpha = 0.6) +
+  labs(
+    x = "",
+    y = "Mean by Participant"
+  ) +
+  theme_minimal()
+
+ggsave(
+  filename,
+  plot = last_plot(),
+  width = 7,
+  height = 5
+)
+
+p
+}
+
+plot_outliers(mean_RT, "average_RT_unfiltered.png", "darkolivegreen3")
+plot_outliers(mean_acc, "average_acc_unfiltered.png", "sienna1")
+```
+
+
+One participant (ID 2400) shows extremely low accuracy (0.2, thus approximately 2%).
+This strongly suggests that the participant did not perform the task correctly. Therefore, this participant is removed from the dataset.
+
+We plot again to visualize what the data looks like now.
+
+```{r removing_participants, cache=TRUE}
+# Remove participant from the dataset
+filtered_df <- subset(pre_filtered_df, !(Participant %in% c("2400")))
+filtered_df
+
+# Plot again:
+means_by_participant <- filtered_df %>%
+  group_by(Participant) %>%
+  summarise(
+    mean_RT = mean(RT, na.rm = TRUE),
+    mean_acc = mean(Accuracy, na.rm = TRUE)
+  )
+means_by_participant
+
+plot_outliers(mean_RT, "average_RT_filtered.png", "darkolivegreen3")
+plot_outliers(mean_acc, "average_acc_filtered.png", "sienna1")
+```
+
+
+### Reaction Time Filtering
+
+To remove implausible reaction times, a cutoff is applied.
+
+Only trials with reaction times between **200 ms and 2000 ms** are retained.
+
+This removes extremely fast responses (likely accidental key presses) and extremely slow responses that may reflect distractions or interruptions.
+
+```{r reaction_time_filtering, cache=TRUE}
+# Visualize the distribution of reaction times to see where to place the cutoff
+p <- ggplot(data = filtered_df, aes(x = "", y = RT)) +
+  geom_boxplot(fill = "darkolivegreen3", color = "black", alpha = 0.6) +
+  labs(
+    x = "",
+    y = "Reaction Time"
+  ) +
+  theme_minimal()
+
+#ggsave(
+#  "RT_distribution.png",
+#  plot = last_plot(),
+#  width = 7,
+#  height = 5
+#)
+
+p
+
+
+
+# Apply cutoff
+post_filtered_df <- filtered_df %>%
+  filter(RT >= 200 & RT <= 2000)
+
+# Plot again to visualize the new distribution
+p <- ggplot(data = post_filtered_df, aes(x = "", y = RT)) +
+  geom_boxplot(fill = "darkolivegreen3", color = "black", alpha = 0.6) +
+  labs(
+    x = "",
+    y = "Reaction Time"
+  ) +
+  theme_minimal()
+
+#ggsave(
+#  "RT_outlier.png",
+#  plot = last_plot(),
+#  width = 7,
+#  height = 5
+#)
+
+p
+
+```
+
+### Mean Accuracy and Reaction Time by Valence Condition
+Next, mean accuracy and reaction time are computed for each emotional valence category:
+
+- positive
+- neutral
+- negative
+
+
+```{r mean_acc_RT_by_valence, cache=TRUE}
+# Mean accuracy and reaction times by valence condition
+means_by_valence <- post_filtered_df %>%
+  group_by(Emotional_valence_cat) %>%
+  summarise(
+    mean_RT = mean(RT, na.rm = TRUE),
+    mean_acc = mean(Accuracy, na.rm = TRUE)
+  )
+means_by_valence
+
+# Plot mean accuracies (barplots)
+plot_valence <- function(y_axis, filename, colour){
+  p <- ggplot(data = means_by_valence, aes(x = Emotional_valence_cat, y = {{ y_axis }}, fill = Emotional_valence_cat)) +
+    geom_col(fill = colour, width = 0.7) +
+    labs(
+      x = "Emotional Valence",
+      y = "Mean Accuracy"
+    ) +
+    theme_minimal()
+
+ggsave(
+  filename,
+  plot = last_plot(),
+  width = 7,
+  height = 5
+)
+
+p
+}
+
+plot_valence(mean_acc, "average_acc_per_valence_barplot.png", "sienna1")
+
+
+# Plot mean RTs (boxplots)
+plot_valence <- function(data, y_axis, filename, colour){
+
+  p <- ggplot(data = data, 
+              aes(x = Emotional_valence_cat, 
+                  y = {{ y_axis }}, 
+                  fill = Emotional_valence_cat)) +
+    geom_boxplot(fill = colour, width = 0.7) +
+    labs(
+      x = "Emotional Valence",
+      y = "RT"
+    ) +
+    theme_minimal()
+
+  ggsave(
+    filename,
+    plot = p,
+    width = 7,
+    height = 5
+  )
+
+  # anzeigen
+  p
+}
+
+plot_valence(post_filtered_df, RT, "RT_per_valence_boxplot.png", "darkolivegreen3")
+```
+
+# Inferential Statistics
+To formally test the research questions, mixed-effects models are used.
+
+Mixed-effects models are appropriate for experimental data because they
+allow us to account for variability across both:
+
+- participants
+- stimuli
+
+
+## Data Loading and Preparation
+
+- Data loading: The full experimental dataset containing reaction times and accuracy values as well as participant data is loaded from a CSV file.
+- Filtering: everything that was removed from the above dataset needs to be removed here as well (practice items, nonwords, certain participants)
+- Variable coding: Before fitting the models, variables are converted to appropriate types (e.g., numeric or factor). The ordering of factor levels is also specified for interpretability.
+
+```{r}
+# Load dataset
+inf_df <- read_csv("LDT_longlist_merged_2026_01_09.csv", show_col_types = FALSE, col_types = cols(
+                          lex_tale_result = col_character()
+                        )) %>%
+  mutate(lex_tale_result = as.numeric(str_replace(lex_tale_result, ",", ".")))    # make sure LexTALE gets parsed right
+
+# Filtering
+prepped_df <- subset(inf_df, Item_type == "exp" & Condition == "word" & !(Participant %in% c("2400")) & RT >= 200 & RT <= 2000)
+
+# Variable coding
+prepped_df <- prepped_df %>%
+  mutate(
+    Accuracy = as.numeric(Accuracy),
+    Participant = as.factor(Participant),
+    Emotional_valence_cat = factor(Emotional_valence_cat, levels = c("neutral", "positive", "negative")),
+    Length = as.numeric(Length),
+    RT = as.numeric(RT),
+    Stimulus = as.factor(Stimulus),
+    lex_tale_result = as.numeric(lex_tale_result),
+  )
+```
+
+### Standardizing Continuous Predictors
+
+Continuous predictors are standardized (z-transformed). This improves model convergence and ensures that predictors are on comparable scales.
+
+```{r}
+prepped_df <- prepped_df %>%
+  mutate(
+    lex_tale_z = scale(lex_tale_result),
+    Length_z   = scale(Length)
+  )
+```
+
+
+## Accuracy Analysis
+
+Accuracy is analysed using a **generalized linear mixed-effects model** with a binomial link function.
+
+The model includes:
+
+Fixed effects:
+
+- LexTALE score (standardized)
+- emotional valence
+- word length
+
+Random effects:
+
+- random intercepts for participants
+- random intercepts for stimuli
+  
+```{r ACC_mixed_model, cache=TRUE}
+# Accuracy mixed model
+acc_model <- glmer(Accuracy ~ lex_tale_z * Emotional_valence_cat + Length_z + (1| Participant) + (1| Stimulus), family = binomial, data = prepped_df, control = glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 1e5)))
+summary(acc_model)
+
+# Plot the model
+# LexTALE (standardized)
+lex_seq_z <- seq(min(prepped_df$lex_tale_z, na.rm = TRUE),
+                 max(prepped_df$lex_tale_z, na.rm = TRUE),
+                 by = 0.1)
+
+# emmeans (standardized, length fixed to zero)
+emm <- emmeans(
+  acc_model,
+  ~ lex_tale_z | Emotional_valence_cat,
+  at = list(lex_tale_z = lex_seq_z, Length_z = 0),
+  type = "response"
+)
+
+# Convert to dataframe
+emm_df <- as.data.frame(emm)
+
+# Backtransformation to original range (0–100%)
+lex_mean <- mean(prepped_df$lex_tale_result)
+lex_sd   <- sd(prepped_df$lex_tale_result)
+emm_df$lex_tale_pct <- emm_df$lex_tale_z * lex_sd + lex_mean
+
+
+# Plot
+p <- ggplot(emm_df, aes(x = lex_tale_pct,
+                   y = prob,
+                   color = Emotional_valence_cat,
+                   fill = Emotional_valence_cat)) +
+  geom_line(linewidth = 1.2) +                     # Linie für geschätzte acc
+  geom_ribbon(aes(ymin = asymp.LCL, ymax = asymp.UCL),
+              alpha = 0.2, color = NA) +           # CI bänder
+  labs(x = "LexTALE (%)",
+       y = "Predicted Accuracy",
+       color = "Emotional Valence",
+       fill = "Emotional Valence") +
+  scale_y_continuous(limits = c(0, 1)) +
+  theme_minimal(base_size = 14)
+
+ggsave(
+  "acc_model.png",
+  plot = last_plot(),
+  width = 7,
+  height = 5
+)
+
+p
+```
+
+## Reaction Time Analysis
+
+Reaction times are analysed using a **linear mixed-effects model**.
+
+Only trials with correct responses are included, as incorrect trials may reflect different cognitive processes.
+
+The model includes:
+
+Fixed effects:
+
+- LexTALE score (standardized)
+- emotional valence
+- word length
+
+Random effects:
+
+- random intercepts for participants
+- random intercepts for stimuli
+
+```{r RT_mixed_model, cache=TRUE}
+# Filter incorrect trials
+RT_df <- subset(prepped_df, Accuracy == "1")
+
+# RT mixed model
+RT_model <- lmer(RT ~ lex_tale_z * Emotional_valence_cat + Length_z + (1| Participant) + (1| Stimulus), data = RT_df)
+summary(RT_model)
+
+# Plot the model
+# LexTALE (standardized)
+lex_seq_z <- seq(min(RT_df$lex_tale_z, na.rm = TRUE),
+                 max(RT_df$lex_tale_z, na.rm = TRUE),
+                 by = 0.1)
+
+# emmeans (standardized, length fixed to zero)
+emm <- emmeans(
+  RT_model,
+  ~ lex_tale_z | Emotional_valence_cat,
+  at = list(lex_tale_z = lex_seq_z, Length_z = 0)
+)
+
+# Convert to dataframe
+emm_df <- as.data.frame(emm)
+
+# Backtransformation to original range (0-100%)
+lex_mean <- mean(RT_df$lex_tale_result)
+lex_sd   <- sd(RT_df$lex_tale_result)
+emm_df$lex_tale_pct <- emm_df$lex_tale_z * lex_sd + lex_mean
+
+
+# Plot
+p <- ggplot(emm_df, aes(x = lex_tale_pct,
+                   y = emmean,
+                   color = Emotional_valence_cat,
+                   fill = Emotional_valence_cat)) +
+  geom_line(linewidth = 1.2) +
+  geom_ribbon(aes(ymin = lower.CL, ymax = upper.CL),
+              alpha = 0.2, color = NA) +
+  labs(x = "LexTALE (%)",
+       y = "Predicted RT (ms)",
+       color = "Emotional Valence",
+       fill = "Emotional Valence") +
+  theme_minimal(base_size = 14)
+
+ggsave(
+  "RT_model.png",
+  plot = last_plot(),
+  width = 7,
+  height = 5
+)
+
+p
+```
+
+
+# Interpretation
+
+The results of the mixed-effects models are interpreted with respect to
+the research questions:
+
+1. Does English proficiency influence the **accuracy or speed** of lexical decisions?
+
+2. Do **emotionally valenced words** (positive or negative) show a processing advantage compared to neutral words?
+
+3. Does **emotional valence interact with English proficiency** in predicting reaction times or accuracy?
+
+The answers to these questions are based on the inferential statistical results reported above.
+
+
+
+# Additional Analyses
+Post-hoc, we decided to additionally examine whether participants' overall performance in the lexical decision task correlates with their LexTALE scores.
+
+```{r performance_LexTALE_correlation, cache=TRUE}
+lex_by_participant <- prepped_df %>%
+  group_by(Participant) %>%
+  summarise(lex_tale_result = first(lex_tale_result))
+
+means_by_participant$Participant <- as.character(means_by_participant$Participant)
+lex_by_participant$Participant   <- as.character(lex_by_participant$Participant)
+
+corr_df <- left_join(means_by_participant, lex_by_participant, by = "Participant")
+
+# Accuracy
+
+# Pearson
+cor.test(corr_df$mean_acc,
+         corr_df$lex_tale_result,
+         method = "pearson")
+
+# Plot
+p <- ggplot(corr_df,
+       aes(x = lex_tale_result, y = mean_acc)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = TRUE, color = "sienna1", fill = "sienna1") +
+  theme_minimal() +
+  labs(x = "LexTALE (%)", y = "Mean Accuracy")
+
+ggsave(
+  "acc_correlation.png",
+  plot = last_plot(),
+  width = 7,
+  height = 5
+)
+
+p
+
+
+# RT
+
+#Pearson
+cor.test(corr_df$mean_RT,
+         corr_df$lex_tale_result,
+         method = "pearson")
+
+# Plot
+p <- ggplot(corr_df,
+       aes(x = lex_tale_result, y = mean_RT)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = TRUE, color = "darkolivegreen3", fill = "darkolivegreen3") +
+  theme_minimal() +
+  labs(x = "LexTALE (%)", y = "Mean RT")
+
+ggsave(
+  "RT_correlation.png",
+  plot = last_plot(),
+  width = 7,
+  height = 5
+)
+
+p
+```
