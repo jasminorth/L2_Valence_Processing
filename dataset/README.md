@@ -39,8 +39,8 @@ Conditions:
   * correspond to formation rules of nouns in target language
 * length maximum 7 characters
 
-Han used manual perturbation of existing english words (*i think? is that true?*), e.g., replacing characters in existing words, e.g., "trouble" $\to$ "trooble".
-Jasmin used the ARC nonword database from [Macquarie University (Sydney-Australia)](http://www.cogsci.mq.edu.au/research/resources/nwdb/nwdb.html), enabling:
+Some were obtained by manual perturbation of existing english words, e.g., replacing characters in existing words, e.g., "trouble" $\to$ "trooble".
+Others by using the ARC nonword database from [Macquarie University (Sydney-Australia)](http://www.cogsci.mq.edu.au/research/resources/nwdb/nwdb.html), enabling:
 * only orthographically existing onsets
 * only orthographically existing bodies \
  with a maximum length of 7 characters.
