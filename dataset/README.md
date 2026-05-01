@@ -20,7 +20,7 @@ Datasets used in word collection:
 The aforementioned datasets were automatically parsed and only fitting instances were retained. These instances were then filtered into one of three categorical valences:
 * **positive** (valence of 7 or higher)
 * **negative** (valence of 3 or lower), and
-* **neutral** (valence between (or equal to) 4.5 and 5.5). \
+* **neutral** (valence between (or equal to) 4.5 and 5.5).
 
 The remainder of words were not retained, as we did not want fuzzy edge cases, which would have made the analysis noisy.
 
