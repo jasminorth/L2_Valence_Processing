@@ -1,7 +1,7 @@
 # Dataset Creation
 The dataset contains *words* and *nonwords*.
 
-For *words*, we used code to automatically retrieve fitting stimuli, and for *nonwords*, we used a combination of manual nonword-creation (Han) and manual selection from a nonword database (Jasmin).
+For *words*, we used code to automatically retrieve fitting stimuli, and for *nonwords*, we used a combination of manual nonword-creation and manual selection from a nonword database.
 Both were then checked by all team members to ensure that their respective stimuli conditions were met.
 
 ## Words
